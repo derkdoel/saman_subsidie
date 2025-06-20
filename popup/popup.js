@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } catch (e) {
       statusDiv.textContent = 'Invalid JSON data.';
+      console.error("Invalid JSON:", e);
     }
   }
 }); 
