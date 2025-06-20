@@ -1,0 +1,31 @@
+{
+  "personalDetails": {
+    "bsn": "221509422",
+    "initials": "DA",
+    "prefix": "van den",
+    "lastName": "Doel",
+    "gender": "Man",
+    "phone": "0612345678",
+    "mobile": "0687654321",
+    "email": "ddoel@email.com",
+    "iban": "NL91ABNA0417164300",
+    "address": {
+      "postalCode": "3061JV",
+      "houseNumber": "1",
+      "houseNumberSuffix": "C",
+      "street": "Ramlehweg",
+      "city": "Rotterdam"
+    },
+    "correspondenceAddressSame": "Ja"
+  },
+  "installationAddress": {
+    "isAddressCorrect": false,
+    "address": {
+      "postalCode": "2011VM",
+      "houseNumber": "30",
+      "houseNumberSuffix": "RD",
+      "street": "Grote Markt",
+      "city": "Haarlem"
+    }
+  }
+}

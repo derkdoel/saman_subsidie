@@ -1,0 +1,9 @@
+{
+  "name": "com.saman_subsidie.eloket_form_filler",
+  "description": "Native messaging host for the Eloket Form Filler extension",
+  "path": "/Users/derkvandendoel/Documents/Personal_projects/DeltaFlowAI/saman_subsidie/native_messaging/python_wrapper.sh",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://jhidodnmeeknmknpokdgnhfnbjoddken/"
+  ]
+}

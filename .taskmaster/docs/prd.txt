@@ -1,0 +1,413 @@
+Eloket Form Filler Component - Product Requirements Document
+Executive Summary
+A Chrome plugin component that automatically fills forms on eloket.dienstuitvoering.nl based on JSON input data, handling the platform's dynamic JavaScript and AJAX form elements.
+
+Scope Definition
+In Scope:
+
+Form field detection and population on eloket.dienstuitvoering.nl
+Handling dynamic JavaScript/AJAX form behaviors
+JSON data mapping to form fields
+Error handling and validation feedback
+
+Out of Scope:
+
+User authentication/login
+Data parsing/extraction (handled by other plugin components)
+Multi-site support beyond eloket platform
+
+Technical Context
+
+Target Platform: eloket.dienstuitvoering.nl (Dutch government service portal)
+Integration: Component within existing Chrome plugin architecture
+Input: JSON object containing form data
+Environment: User already authenticated, form page loaded
+
+Core Requirements
+Functional Requirements
+
+Field Mapping: Automatically detect and map JSON keys to form fields
+Dynamic Content: Handle AJAX-loaded form sections and progressive disclosure
+Field Types: Support all common input types (text, select, radio, checkbox, date, file uploads)
+Validation Handling: Respect client-side validation and provide feedback
+Multi-step Forms: Navigate through wizard-style form flows
+Error Recovery: Graceful handling of unmappable fields or validation errors
+
+Technical Requirements
+
+Framework Agnostic: Work regardless of underlying JavaScript framework
+DOM Monitoring: Real-time detection of form changes and new elements
+Event Simulation: Proper triggering of change/blur events for validation
+Performance: <2 second completion for typical forms
+Memory Efficient: Minimal impact on browser performance
+
+Data Interface
+Input JSON Structure
+json{
+  "formData": {
+    "firstName": "Jan",
+    "lastName": "Jansen",
+    "email": "jan@example.nl",
+    "phone": "0612345678",
+    "address": {
+      "street": "Hoofdstraat 1",
+      "city": "Amsterdam",
+      "zipCode": "1000 AA"
+    },
+    "businessInfo": {
+      "kvkNumber": "12345678",
+      "vatNumber": "NL123456789B01"
+    }
+  },
+  "options": {
+    "skipValidation": false,
+    "autoSubmit": false,
+    "delayBetweenFields": 100
+  }
+}
+Output Response
+json{
+  "status": "success|partial|error",
+  "fieldsCompleted": 15,
+  "fieldsTotal": 18,
+  "unmappedFields": ["specialField1", "customDropdown"],
+  "validationErrors": [],
+  "nextStepAvailable": true
+}
+Implementation Options
+Option A: JavaScript Frontend (Chrome Plugin Integration)
+Recommended for Chrome plugin architecture
+Core Components
+
+Field Detector: DOM scanning and element mapping
+Data Populator: JSON-to-form field population
+Event Manager: Proper event triggering for validation
+AJAX Monitor: Dynamic content detection
+Progress Tracker: Multi-step form navigation
+
+Field Detection Logic
+javascript// Priority order for field matching
+const fieldMatchers = [
+  (key) => document.getElementById(key),
+  (key) => document.querySelector(`[name="${key}"]`),
+  (key) => document.querySelector(`label[for*="${key}"]`)?.getAttribute('for'),
+  (key) => document.querySelector(`[placeholder*="${key}"]`),
+  (key) => semanticMatch(key) // email, phone, address patterns
+];
+Dynamic Content Handling
+javascript// MutationObserver for DOM changes
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach(mutation => {
+    if (mutation.type === 'childList') {
+      checkForNewFormFields(mutation.addedNodes);
+    }
+  });
+});
+
+// AJAX detection
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  const response = await originalFetch(...args);
+  await waitForFormUpdates();
+  return response;
+};
+Option B: Python Selenium (External Process)
+For complex automation or when Chrome plugin limitations exist
+Core Components
+pythonclass EloketFormFiller:
+    def __init__(self, driver_path, headless=False):
+        self.driver = webdriver.Chrome(driver_path)
+        self.wait = WebDriverWait(self.driver, 10)
+        
+    def fill_form(self, json_data, form_url):
+        self.driver.get(form_url)
+        return self._populate_fields(json_data)
+Field Detection Logic
+pythondef find_field(self, field_key, field_value):
+    strategies = [
+        (By.ID, field_key),
+        (By.NAME, field_key),
+        (By.XPATH, f"//label[contains(text(), '{field_key}')]/following::input"),
+        (By.XPATH, f"//input[@placeholder*='{field_key}']"),
+        (By.XPATH, self._semantic_xpath(field_key))
+    ]
+    
+    for strategy, locator in strategies:
+        try:
+            return self.wait.until(EC.presence_of_element_located((strategy, locator)))
+        except TimeoutException:
+            continue
+    return None
+AJAX Handling
+pythondef wait_for_ajax(self):
+    # Wait for jQuery if present
+    try:
+        self.wait.until(lambda driver: driver.execute_script("return jQuery.active == 0"))
+    except:
+        pass
+    
+    # Wait for custom loading indicators
+    self.wait.until_not(EC.presence_of_element_located((By.CLASS_NAME, "loading")))
+Error Handling
+Recoverable Errors
+
+Field not found: Log and continue with remaining fields
+Validation failure: Attempt alternative values or skip field
+Timeout waiting for dynamic content: Proceed with available fields
+
+Critical Errors
+
+Form not detected on page
+JSON parsing failure
+Browser security restrictions
+
+Success Metrics
+
+Field Match Rate: >90% successful field detection
+Completion Speed: <2 seconds for standard forms
+Validation Pass Rate: >95% forms pass initial validation
+Error Recovery: <5% unrecoverable errors
+
+Technology Comparison
+JavaScript Frontend (Recommended)
+Pros:
+
+Native Chrome plugin integration
+Direct DOM access and event handling
+No external dependencies or processes
+Real-time form interaction
+Lightweight and fast execution
+
+Cons:
+
+Limited to browser security context
+Complex AJAX debugging
+Potential conflicts with site's JavaScript
+
+Python Selenium
+Pros:
+
+Full browser control and automation
+Robust error handling and debugging
+Can handle complex authentication flows
+Better for testing and development
+Rich ecosystem of automation tools
+
+Cons:
+
+External process management required
+Higher resource usage
+Communication overhead with Chrome plugin
+Potential detection by anti-automation measures
+
+Recommended Architecture
+Hybrid Approach
+
+JavaScript frontend for lightweight form filling within plugin
+Python Selenium fallback for complex scenarios or debugging
+Shared JSON interface for consistent data handling
+
+javascript// Chrome plugin coordinator
+class FormFillerCoordinator {
+  async fillForm(data, options = {}) {
+    try {
+      // Try JavaScript approach first
+      return await this.jsFormFiller.fillForm(data, options);
+    } catch (error) {
+      if (options.allowPythonFallback) {
+        // Fall back to Python Selenium
+        return await this.callPythonFiller(data, options);
+      }
+      throw error;
+    }
+  }
+}
+Configuration Options
+json{
+  "fieldDetection": {
+    "timeout": 5000,
+    "retryAttempts": 3,
+    "fuzzyMatching": true
+  },
+  "population": {
+    "delayBetweenFields": 100,
+    "triggerEvents": ["input", "change", "blur"],
+    "skipReadonly": true
+  },
+  "validation": {
+    "waitForValidation": true,
+    "retryOnError": true,
+    "skipInvalidFields": false
+  }
+}
+API Interface
+JavaScript Implementation (Chrome Plugin)
+javascript// Content script injection
+class EloketFormFiller {
+  constructor(config = {}) {
+    this.config = { ...defaultConfig, ...config };
+    this.fieldMap = new Map();
+  }
+
+  async fillForm(jsonData, options = {}) {
+    try {
+      await this.detectFields();
+      const result = await this.populateFields(jsonData);
+      return {
+        status: 'success',
+        fieldsCompleted: result.completed,
+        fieldsTotal: result.total,
+        unmappedFields: result.unmapped,
+        validationErrors: await this.getValidationErrors()
+      };
+    } catch (error) {
+      return { status: 'error', message: error.message };
+    }
+  }
+
+  async detectFields() {
+    const forms = document.querySelectorAll('form');
+    // Field detection logic
+  }
+
+  async populateFields(data) {
+    // Population logic with proper event triggering
+  }
+}
+
+// Usage from Chrome plugin
+window.eloketFiller = new EloketFormFiller();
+Python Selenium Implementation
+pythonimport json
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+class EloketFormFiller:
+    def __init__(self, driver_path=None, headless=False):
+        options = webdriver.ChromeOptions()
+        if headless:
+            options.add_argument('--headless')
+        self.driver = webdriver.Chrome(options=options)
+        self.wait = WebDriverWait(self.driver, 10)
+        
+    def fill_form(self, form_url, json_data_path):
+        """
+        Main entry point for form filling
+        """
+        with open(json_data_path, 'r') as f:
+            data = json.load(f)
+            
+        self.driver.get(form_url)
+        return self._process_form(data)
+        
+    def _process_form(self, form_data):
+        results = {
+            'status': 'success',
+            'fieldsCompleted': 0,
+            'fieldsTotal': 0,
+            'unmappedFields': [],
+            'validationErrors': []
+        }
+        
+        for field_key, field_value in form_data.get('formData', {}).items():
+            element = self._find_field(field_key)
+            if element:
+                self._fill_field(element, field_value)
+                results['fieldsCompleted'] += 1
+            else:
+                results['unmappedFields'].append(field_key)
+            results['fieldsTotal'] += 1
+            
+        return results
+
+# Usage
+filler = EloketFormFiller()
+result = filler.fill_form('https://eloket.dienstuitvoering.nl/...', 'form_data.json')
+Testing Requirements
+JavaScript Implementation Testing
+
+Form Variations: Different eloket form types and layouts
+Dynamic Content: AJAX loading, progressive disclosure, conditional fields
+Event Handling: Proper validation triggering and form submission
+Browser Compatibility: Chrome versions 90+, different screen sizes
+Performance: Forms with 50+ fields, large datasets
+
+Python Selenium Testing
+
+WebDriver Stability: Chrome driver compatibility and updates
+Timing Issues: Implicit/explicit waits, AJAX completion
+Element Detection: Various locator strategies and reliability
+Error Recovery: Graceful handling of stale elements and timeouts
+Resource Management: Memory usage, browser instance cleanup
+
+Integration Testing
+
+Data Flow: JSON parsing and field mapping accuracy
+Error Propagation: Consistent error handling between implementations
+Configuration: Settings and options behavior
+Fallback Logic: Seamless transition between JavaScript and Python
+
+Deployment Considerations
+JavaScript Deployment
+javascript// Content script manifest entry
+{
+  "content_scripts": [{
+    "matches": ["https://eloket.dienstuitvoering.nl/*"],
+    "js": ["eloket-form-filler.js"],
+    "run_at": "document_end"
+  }]
+}
+Python Deployment
+python# Package requirements
+selenium==4.15.0
+webdriver-manager==4.0.1
+requests==2.31.0
+
+# Docker container option
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y chromium-driver
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+Communication Bridge
+javascript// Native messaging for Python communication
+{
+  "name": "com.yourcompany.eloket_filler",
+  "description": "Eloket Form Filler Python Backend",
+  "path": "eloket_filler.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://your-extension-id/"]
+}
+Implementation Timeline
+Phase 1: Core JavaScript Implementation 
+
+Basic field detection and population
+JSON data mapping
+Event triggering for form validation
+
+Phase 2: Dynamic Content Handling
+AJAX monitoring and waiting
+Multi-step form navigation
+Error handling and retry logic
+
+Phase 3: Python Selenium Fallback 
+
+Selenium automation script
+Native messaging bridge
+Integration testing
+
+Phase 4: Testing and Optimization 
+
+Comprehensive testing across form types
+Performance optimization
+Documentation and deployment
+
+Next Steps
+
+Form Analysis: Screenshots and DOM inspection of target eloket forms
+Dynamic Behavior Mapping: Document AJAX patterns and form flows
+Field Naming Conventions: Analyze eloket's field naming and ID patterns
+Technology Decision: Choose between JavaScript-first or Python-first approach
+Sample Data: Provide sample JSON structure for testing
+Integration Points: Define how this component interfaces with your existing plugin 

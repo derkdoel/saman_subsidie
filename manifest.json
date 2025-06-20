@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Eloket Form Filler",
+  "version": "1.0",
+  "description": "Fills forms on eloket.dienstuitvoering.nl automatically.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://eloket.dienstuitvoering.nl/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options/options.html",
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+} 
